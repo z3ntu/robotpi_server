@@ -1,0 +1,5 @@
+robotpi_server:
+	gcc robotpi_socket.c -o robotpi_socket -lwiringPi -lbcm2835 -lpthread
+
+clean:
+	/bin/rm robotpi_socket
