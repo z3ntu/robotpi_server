@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([FULL-PACKAGE-NAME], [VERSION], [BUG-REPORT-ADDRESS])
+AC_INIT([robotpi_server], [1.0], [github.com/z3ntu/robotpi_server])
 AC_CONFIG_SRCDIR([robotpi_socket.c])
 AC_CONFIG_HEADERS([config.h])
 
