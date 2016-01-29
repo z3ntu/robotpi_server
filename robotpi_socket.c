@@ -27,7 +27,7 @@ const int rightBackward = 24;
 
 const int servo = 1;
 
-void setup(){
+void setup() {
     pinMode(servo, PWM_OUTPUT);
     pwmSetMode(PWM_MODE_MS);
     pwmSetRange(1024);
@@ -52,38 +52,29 @@ void setup(){
 }
 
 void servoPwm(int pwm) {
-    if(pwm < 0 || pwm > 140){
+    if (pwm < 0 || pwm > 140) {
         return;
     }
-    int real = pwm+40;
+    int real = pwm + 40;
     pwmWrite(servo, real);
 }
-
 
 /**
  * STARTS
  */
 void forward_left() {
-    //28 out
-//    pinMode(leftForward, OUTPUT);
     softPwmWrite(leftForward, 100);
 }
 
 void forward_right() {
-    //25 out
-//    pinMode(rightForward, OUTPUT);
     softPwmWrite(rightForward, 100);
 }
 
 void backward_left() {
-    //27 out
-//    pinMode(leftBackward, OUTPUT);
     softPwmWrite(leftBackward, 100);
 }
 
 void backward_right() {
-    //24 out
-//    pinMode(rightBackward, OUTPUT);
     softPwmWrite(rightBackward, 100);
 }
 
@@ -103,36 +94,32 @@ void backward_rightPWM(int pwm) {
     softPwmWrite(rightBackward, pwm);
 }
 
-void resetServo(){
+void resetServo() {
     pwmWrite(servo, 40);
+}
+
+void forward() {
+    forward_left();
+    forward_right();
 }
 
 /**
  * STOPS
  */
-
 void stop_forward_left() {
-    //28 in
-//    pinMode(leftForward, INPUT);
     softPwmWrite(leftForward, 0);
 }
 
 void stop_forward_right() {
-    //25 in
-//    pinMode(rightForward, INPUT);
     softPwmWrite(rightForward, 0);
 
 }
 
 void stop_backward_left() {
-    //27 in
-//    pinMode(leftBackward, INPUT);
     softPwmWrite(leftBackward, 0);
 }
 
 void stop_backward_right() {
-    //24 in
-//    pinMode(rightBackward, INPUT);
     softPwmWrite(rightBackward, 0);
 }
 
@@ -151,8 +138,6 @@ void resetAll() {
 #define BUFFER_SIZE 7;
 #define BUFFER_INPUT_LEN 6;
 #define PORT 2048;
-
-
 
 int sockfd;
 int newsockfd;
@@ -177,19 +162,17 @@ int writeStringToClient(const char *buf) {
     }
 }
 
-
+//TODO: Rewrite in wiringPi
 int distance(int mode) {
-    printf("Measuring distance!");
+//    printf("Measuring distance!");
     char sbuf[20];
     uint64_t b_t; //begin timer
     float t_d; // Timer difference
     int min = 0, max = 0, mid = 0;
     float dist; // Distance
     int i, n;
-    int schritt = 0;
 
-    //signal(SIGINT, sighandler);
-
+    //TODO: Move init to beginning of this program not this method
     if (!bcm2835_init()) {
         printf("Fehler: bcm_init()\n");
         exit(-1);
@@ -200,49 +183,47 @@ int distance(int mode) {
     bcm2835_gpio_set_pud(ECHO, BCM2835_GPIO_PUD_DOWN);
 
     int fff;
-    for (fff = 0; fff < 10; fff++) {
+    const int count = 3; // how often to measure
+    for (fff = 0; fff < count; fff++) {
         // send triger
-        bcm2835_gpio_set(TRIG);
-        bcm2835_delayMicroseconds(10);
-        bcm2835_gpio_clr(TRIG);
-        bcm2835_delayMicroseconds(400);
-        // Warten auf steigende Flanke
+        bcm2835_gpio_set(TRIG); // sets trigger pin to HIGH
+        bcm2835_delayMicroseconds(10); // waits 10 microseconds
+        bcm2835_gpio_clr(TRIG); // sets trigger pin to LOW
+        bcm2835_delayMicroseconds(400); // waits 400 microseconds
+        // wait for rising edge
         for (n = 0; n < 400; n++) {
-            if (bcm2835_gpio_lev(ECHO)) break;
-            bcm2835_delayMicroseconds(5);
+            if (bcm2835_gpio_lev(ECHO)) break; // waits until echo pin is HIGH
+            bcm2835_delayMicroseconds(5); // waits 5 microseconds
         }
-        if (n >= 400) continue;
-        b_t = bcm2835_st_read();
+        if (n >= 400) continue; // if the 400 timer ran out, skip
+        b_t = bcm2835_st_read(); //returns "the value read from the System Timer Counter Lower 32 bits register"
 
         for (i = 0; i < 2000; i++) {
-            if (!bcm2835_gpio_lev(ECHO)) break;
-            bcm2835_delayMicroseconds(10);
+            if (!bcm2835_gpio_lev(ECHO)) break; // waits until echo pin is LOW
+            bcm2835_delayMicroseconds(10); // waits 10 microseconds
         }
-        // Warten auf fallende Flanke
-        t_d = bcm2835_st_read() - b_t;
-        dist = (t_d * .0343) / 2;
+        // wait for falling edge
+        t_d = bcm2835_st_read() - b_t; // calculate timer difference
+        dist = (t_d * .0343) / 2; // do some magic, probably some correction - time<->distance mapping
 
-        if (dist == 0) continue;
+        if (dist == 0) continue; // ignore if failed
 
+        // set min and max if not set
         if (min == 0 || max == 0) {
             max = dist;
             min = dist;
         }
         if (dist > max) {
-            max = dist;
+            max = dist; // set max if max
         }
         if (dist < min) {
-            min = dist;
+            min = dist; // set min if min
         }
-
-        //printf ("n:%d i:%d DISTANCE:%6.2f\n",n,i,dist);
-        //printf("%c[2J",27);
-        //printf("DISTANCE:%6.2f\n",dist);
-        mid += dist;
+//        printf("%d\n", dist);
+        mid += dist; // add distance to average
         delay(50);
-
     }
-    if (mode == MID) return mid / 10;
+    if (mode == MID) return mid / count;
     if (mode == MIN) return min;
     if (mode == MAX) return max;
 }
@@ -251,12 +232,12 @@ int distance(int mode) {
 int main(int argc, char **argv) {
     int port = PORT;
 
-    char buffer[ 7 ];
+    char buffer[7];
     socklen_t clilen;
     struct sockaddr_in serv_addr, cli_addr;
     int bytes_read = 0;
 
-    buffer[ 6 ] = '\0';
+    buffer[6] = '\0';
 
 
     printf("Starting Server.\n");
@@ -270,18 +251,18 @@ int main(int argc, char **argv) {
     }
 
     int one = 1;
-    setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR,&one,sizeof(int));
+    setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(int));
 
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = INADDR_ANY;
     serv_addr.sin_port = htons(port);
 
-    if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof (serv_addr)) < 0) {
+    if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
         printf("Can't bind socket. Exiting!\n");
         exit(1);
     }
     listen(sockfd, 5);
-    clilen = sizeof (cli_addr);
+    clilen = sizeof(cli_addr);
     while (1) {
         printf("Waiting for connections...\n");
         newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
@@ -308,15 +289,15 @@ int main(int argc, char **argv) {
 
             buffer[4] = '\0';
 
-            char c [2];
-            c[0]= buffer[2];
+            char c[2];
+            c[0] = buffer[2];
             c[1] = buffer[3];
             int pwm = atoi(c);
 
             printf("%d\n", pwm);
 
-            if(buffer[0] == 'Y') {
-                char s [3];
+            if (buffer[0] == 'Y') {
+                char s[3];
                 s[0] = buffer[1];
                 s[1] = buffer[2];
                 s[2] = buffer[3];
@@ -324,23 +305,15 @@ int main(int argc, char **argv) {
                 servoPwm(pwmS);
 
             } else if (buffer[0] == 'F' && buffer[1] == 'L') {
-                //resetAll();
-//                       stop_forward_right();
                 printf("forward left argument");
                 forward_leftPWM(pwm);
             } else if (buffer[0] == 'F' && buffer[1] == 'R') {
-                //resetAll();
-//                       stop_forward_left();
                 printf("forward right argument");
                 forward_rightPWM(pwm);
             } else if (buffer[0] == 'B' && buffer[1] == 'L') {
-//                resetAll();
-//                       stop_backward_right();
                 printf("backward left argument");
                 backward_leftPWM(pwm);
             } else if (buffer[0] == 'B' && buffer[1] == 'R') {
-//                resetAll();
-//                       stop_backward_left();
                 printf("backward right argument");
                 backward_rightPWM(pwm);
             } else if (buffer[0] == 'F' && buffer[1] == '0') {
@@ -377,21 +350,30 @@ int main(int argc, char **argv) {
                 close(newsockfd);
                 break;
             } else if (strcmp(buffer, "AUTO") == 0) {
+                int dist;
+                int threshold = 20;
                 resetAll();
-                if (distance(MIN) < 20) {
+
+                dist = distance(MIN);
+                if (dist < threshold) {
                     continue;
                 }
-                forward_left();
-                forward_right();
-                int dist;
+                forward();
+
                 while (1) {
                     dist = distance(MIN);
                     printf("Dist: %d \n", dist);
-                    if (dist < 20) {
+                    if (dist < threshold) {
                         resetAll();
-                        writeStringToClient("EVNT");
+                        writeStringToClient("STOP\n");
                         break;
                     }
+                }
+                continue;
+            } else if (strcmp(buffer, "LOOP") == 0) {
+                while (1) {
+                    printf("%d\n", distance(MIN));
+                    usleep(500000);
                 }
             } else if (strcmp(buffer, "TEST") == 0) {
                 writeStringToClient("Response test 2\n");
@@ -405,7 +387,7 @@ int main(int argc, char **argv) {
             } else if (strcmp(buffer, "DIST") == 0) {
                 int dist = distance(MID);
                 char str[10];
-                snprintf(str,10,  "%d", dist);
+                snprintf(str, 10, "%d", dist);
                 writeStringToClient(str);
             } else {
                 printf("ERROR IN PARAMETER!");
