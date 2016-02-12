@@ -48,7 +48,11 @@ void setup() {
     softPwmCreate(leftBackward, 0, 99);
     softPwmCreate(rightBackward, 0, 99);
 
-
+    //for distance stuff
+    if (!bcm2835_init()) {
+        printf("Fehler: bcm_init()\n");
+        exit(-1);
+    }
 }
 
 void servoPwm(int pwm) {
@@ -162,7 +166,7 @@ int writeStringToClient(const char *buf) {
     }
 }
 
-//TODO: Rewrite in wiringPi
+//TODO: Rewrite in wiringPi, not BCM2835
 int distance(int mode) {
 //    printf("Measuring distance!");
     char sbuf[20];
@@ -172,18 +176,13 @@ int distance(int mode) {
     float dist; // Distance
     int i, n;
 
-    //TODO: Move init to beginning of this program not this method
-    if (!bcm2835_init()) {
-        printf("Fehler: bcm_init()\n");
-        exit(-1);
-    }
     /* init */
     bcm2835_gpio_fsel(TRIG, BCM2835_GPIO_FSEL_OUTP);
     bcm2835_gpio_fsel(ECHO, BCM2835_GPIO_FSEL_INPT);
     bcm2835_gpio_set_pud(ECHO, BCM2835_GPIO_PUD_DOWN);
 
     int fff;
-    const int count = 3; // how often to measure
+    const int count = 1; // how often to measure
     for (fff = 0; fff < count; fff++) {
         // send triger
         bcm2835_gpio_set(TRIG); // sets trigger pin to HIGH
@@ -282,8 +281,9 @@ int main(int argc, char **argv) {
                 break;
             }
 
-            if (bytes_read != 6) {
+            if (bytes_read != 6 && bytes_read != 5) { // nc sends 5 bytes, telnet 6
                 printf("Skip command, length: %d - %s\n", bytes_read, buffer);
+                printf("Bytes read: %d\n", bytes_read);
                 continue;
             }
 
@@ -351,11 +351,12 @@ int main(int argc, char **argv) {
                 break;
             } else if (strcmp(buffer, "AUTO") == 0) {
                 int dist;
-                int threshold = 20;
+                int threshold = 10;
                 resetAll();
 
-                dist = distance(MIN);
-                if (dist < threshold) {
+                dist = distance(MID);
+                if (dist < threshold && dist != 0) {
+                    printf("Distance lower than threshold: %d.\n", dist);
                     continue;
                 }
                 forward();
@@ -363,7 +364,7 @@ int main(int argc, char **argv) {
                 while (1) {
                     dist = distance(MIN);
                     printf("Dist: %d \n", dist);
-                    if (dist < threshold) {
+                    if (dist < threshold && dist != 0) {
                         resetAll();
                         writeStringToClient("STOP\n");
                         break;
