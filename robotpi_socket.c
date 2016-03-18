@@ -14,6 +14,7 @@
 #include <unistd.h>
 #include <softPwm.h>
 
+// Physical pins
 #define TRIG 23
 #define ECHO 24
 
@@ -24,12 +25,11 @@
 
 enum distMode { MIN, MID, MAX };
 
+// WiringPi pins (not physical)
 const int leftForward = 29;
 const int leftBackward = 28;
-
 const int rightForward = 25;
 const int rightBackward = 24;
-
 const int servo = 1;
 
 void setup() {
@@ -68,30 +68,29 @@ void servoPwm(int pwm) {
     pwmWrite(servo, real);
 }
 
-void forward_leftPWM(int pwm) {
+void forward_left(int pwm) {
     softPwmWrite(leftForward, pwm);
 }
 
-void forward_rightPWM(int pwm) {
+void forward_right(int pwm) {
     softPwmWrite(rightForward, pwm);
 }
 
-void backward_leftPWM(int pwm) {
+void backward_left(int pwm) {
     softPwmWrite(leftBackward, pwm);
 }
 
-void backward_rightPWM(int pwm) {
+void backward_right(int pwm) {
     softPwmWrite(rightBackward, pwm);
 }
-
 
 void resetServo() {
     servoPwm(0);
 }
 
 void forward() {
-    forward_leftPWM(100);
-    forward_rightPWM(100);
+    forward_left(100);
+    forward_right(100);
 }
 
 /**
@@ -134,7 +133,7 @@ int distance(enum distMode mode) {
     uint64_t b_t; //begin timer
     float t_d; // Timer difference
     int min = 0, max = 0, mid = 0;
-    float dist; // Distance
+    double dist; // Distance
     int i, n;
 
     /* init */
@@ -170,22 +169,23 @@ int distance(enum distMode mode) {
 
         // set min and max if not set
         if (min == 0 || max == 0) {
-            max = dist;
-            min = dist;
+            max = (int)dist;
+            min = (int)dist;
         }
         if (dist > max) {
-            max = dist; // set max if max
+            max = (int)dist; // set max if max
         }
         if (dist < min) {
-            min = dist; // set min if min
+            min = (int)dist; // set min if min
         }
-//        printf("%d\n", dist);
         mid += dist; // add distance to average
-        delay(50);
+        bcm2835_delay(50);
     }
     if (mode == MID) return mid / count;
     if (mode == MIN) return min;
     if (mode == MAX) return max;
+
+    return 0;
 }
 
 
@@ -198,7 +198,6 @@ int main(int argc, char **argv) {
     int bytes_read = 0;
 
     buffer[6] = '\0';
-
 
     printf("Starting Server.\n");
     wiringPiSetup();
@@ -223,6 +222,7 @@ int main(int argc, char **argv) {
     }
     listen(sockfd, 5);
     clilen = sizeof(cli_addr);
+
     while (1) {
         printf("Waiting for connections...\n");
         newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
@@ -231,7 +231,6 @@ int main(int argc, char **argv) {
         } else {
             printf("Client connected!\n");
         }
-
 
         while (1) {
             bzero(buffer, 6);
@@ -267,36 +266,36 @@ int main(int argc, char **argv) {
 
             } else if (buffer[0] == 'F' && buffer[1] == 'L') {
                 printf("forward left argument");
-                forward_leftPWM(pwm);
+                forward_left(pwm);
             } else if (buffer[0] == 'F' && buffer[1] == 'R') {
                 printf("forward right argument");
-                forward_rightPWM(pwm);
+                forward_right(pwm);
             } else if (buffer[0] == 'B' && buffer[1] == 'L') {
                 printf("backward left argument");
-                backward_leftPWM(pwm);
+                backward_left(pwm);
             } else if (buffer[0] == 'B' && buffer[1] == 'R') {
                 printf("backward right argument");
-                backward_rightPWM(pwm);
+                backward_right(pwm);
             } else if (buffer[0] == 'F' && buffer[1] == '0') {
                 resetAll();
                 printf("forward argument");
-                forward_leftPWM(pwm);
-                forward_rightPWM(pwm);
+                forward_left(pwm);
+                forward_right(pwm);
             } else if (buffer[0] == 'B' && buffer[1] == '0') {
                 resetAll();
                 printf("backward argument");
-                backward_rightPWM(pwm);
-                backward_leftPWM(pwm);
+                backward_right(pwm);
+                backward_left(pwm);
             } else if (buffer[0] == 'R' && buffer[1] == 'L') {
                 resetAll();
                 printf("rotate left argument");
-                forward_rightPWM(pwm);
-                backward_leftPWM(pwm);
+                forward_right(pwm);
+                backward_left(pwm);
             } else if (buffer[0] == 'R' && buffer[1] == 'R') {
                 resetAll();
                 printf("rotate right argument");
-                backward_rightPWM(pwm);
-                forward_leftPWM(pwm);
+                backward_right(pwm);
+                forward_left(pwm);
             } else if (strcmp(buffer, "0000") == 0) {
                 printf("reset argument");
                 resetAll();
@@ -311,12 +310,12 @@ int main(int argc, char **argv) {
                 close(newsockfd);
                 break;
             } else if (strcmp(buffer, "AUTO") == 0) {
-                printf("Test1");
-                usleep(10000000);
-                printf("Test2");
+                fprintf(stderr, "Test1");
+                usleep(1000000);
+                fprintf(stderr, "Test2");
 
                 int dist;
-                int threshold = 20;
+                int threshold = 30;
                 resetAll();
 
                 dist = distance(MID);
@@ -327,34 +326,32 @@ int main(int argc, char **argv) {
                 forward();
 
                 while (1) {
+                    forward();
                     dist = distance(MID);
                     printf("Dist: %d \n", dist);
                     if (dist < threshold && dist != 0) {
-                        printf("First");
-                        forward_rightPWM(60);
-                        backward_leftPWM(80);
-                        usleep(100000000);
-                        printf("Second");
+//                        fprintf(stderr, "First");
+//                        forward_right(65);
                         resetAll();
-                        usleep(100000000);
-                        printf("Third");
+                        backward_left(90);
+                        usleep(1000000);
+                        resetAll();
+//                        fprintf(stderr, "Second");
                         dist = distance(MID);
                         if (dist > 20 || dist == 0) {
                             continue;
                         }
-                        printf("Fourth");
-                        forward_leftPWM(60);
-                        backward_rightPWM(80);
+//                        fprintf(stderr, "Fourth");
+//                        forward_left(65);
+                        backward_right(90);
+                        usleep(2000000);
+                        resetAll();
                         dist = distance(MID);
                         if (dist > 20 || dist == 0) {
                             continue;
                         }
-                        usleep(300000000);
-                        printf("Fifth");
-                        resetAll();
-                        usleep(100000000);
-                        printf("Sixth");
                         writeStringToClient("STOP\n");
+                        fprintf(stderr, "STOP");
                         break;
                     }
                     usleep(50000);
@@ -367,11 +364,11 @@ int main(int argc, char **argv) {
                 }
             } else if (strcmp(buffer, "TEST") == 0) {
                 writeStringToClient("Response test 2\n");
-                forward_leftPWM(100);
+                forward_left(100);
                 usleep(5000000);
-                forward_leftPWM(75);
+                forward_left(75);
                 usleep(5000000);
-                forward_leftPWM(50);
+                forward_left(50);
                 usleep(5000000);
                 softPwmWrite(leftForward, 0);
             } else if (strcmp(buffer, "DIST") == 0) {

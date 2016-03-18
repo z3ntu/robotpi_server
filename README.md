@@ -1,23 +1,25 @@
 # RobotPi
 
 RobotPi-Server is a server application to control a robot. You can control it via the [Android App](https://github.com/z3ntu/robotpi_client_android) or directly via telnet (port 2048).
-It is designed for the Raspberry Pi and [wiringPi](http://wiringpi.com/).
+It is designed for the Raspberry Pi.
 
 ### Prerequisites
 For compiling RobotPi-Server you need:
 - [wiringPi](http://wiringpi.com/)
 - [BCM2835](http://www.airspayce.com/mikem/bcm2835/)
-- autotools
 
 ### How to compile
 ```
-./autogen.sh
-./configure
 make
 ```
 
+### How to run
+```
+./robotpi_socket
+```
+
 ### Communication
-Communication happens on port 2048. All messages (to the server) contain four characters.
+Communication happens on port 2048 (configurable). All messages (to the server) contain four characters.
 
 **Servo**: "Y" and then a three-digit number between 0 & 140.
 
@@ -46,5 +48,5 @@ Communication happens on port 2048. All messages (to the server) contain four ch
 ![Photo 3](http://z3ntu.github.io/images/robotpi_3.jpg)
 
 ### Connections
-A H-Bridge is connected with the physical pins 35 - 38.
+A H-Bridge is connected with the physical pins 35,37 & 38,40.
 The servo is connected on physical pin 12.
