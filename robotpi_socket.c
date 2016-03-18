@@ -1,26 +1,31 @@
 //
-// Created on 15.05.15.
+// RobotPi Server, programmed by Luca Weiss & more in FRAP.
+// For more information please visit https://github.com/z3ntu/robotpi_server
+// License: MIT
 //
 #include <stdio.h>
 #include <stdlib.h>
 #include <wiringPi.h>
 #include <bcm2835.h>
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <string.h>
 #include <signal.h>
-
+#include <unistd.h>
+#include <softPwm.h>
 
 #define TRIG 23
 #define ECHO 24
 
-enum {
-    MIN, MID, MAX
-} distMode;
+//#define BUFFER_PAYLOAD 4;
+//#define BUFFER_SIZE 7;
+//#define BUFFER_INPUT_LEN 6;
+#define PORT 2048;
 
-const int leftForward = 28;
-const int leftBackward = 27;
+enum distMode { MIN, MID, MAX };
+
+const int leftForward = 29;
+const int leftBackward = 28;
 
 const int rightForward = 25;
 const int rightBackward = 24;
@@ -50,7 +55,7 @@ void setup() {
 
     //for distance stuff
     if (!bcm2835_init()) {
-        printf("Fehler: bcm_init()\n");
+        printf("Error in: bcm2835_init()\n");
         exit(-1);
     }
 }
@@ -61,25 +66,6 @@ void servoPwm(int pwm) {
     }
     int real = pwm + 40;
     pwmWrite(servo, real);
-}
-
-/**
- * STARTS
- */
-void forward_left() {
-    softPwmWrite(leftForward, 100);
-}
-
-void forward_right() {
-    softPwmWrite(rightForward, 100);
-}
-
-void backward_left() {
-    softPwmWrite(leftBackward, 100);
-}
-
-void backward_right() {
-    softPwmWrite(rightBackward, 100);
 }
 
 void forward_leftPWM(int pwm) {
@@ -98,57 +84,33 @@ void backward_rightPWM(int pwm) {
     softPwmWrite(rightBackward, pwm);
 }
 
+
 void resetServo() {
-    pwmWrite(servo, 40);
+    servoPwm(0);
 }
 
 void forward() {
-    forward_left();
-    forward_right();
-}
-
-/**
- * STOPS
- */
-void stop_forward_left() {
-    softPwmWrite(leftForward, 0);
-}
-
-void stop_forward_right() {
-    softPwmWrite(rightForward, 0);
-
-}
-
-void stop_backward_left() {
-    softPwmWrite(leftBackward, 0);
-}
-
-void stop_backward_right() {
-    softPwmWrite(rightBackward, 0);
+    forward_leftPWM(100);
+    forward_rightPWM(100);
 }
 
 /**
  * RESET
  */
 void resetAll() {
-    stop_forward_left();
-    stop_forward_right();
-    stop_backward_left();
-    stop_backward_right();
+    softPwmWrite(leftForward, 0);
+    softPwmWrite(rightForward, 0);
+    softPwmWrite(leftBackward, 0);
+    softPwmWrite(rightBackward, 0);
     resetServo();
 }
-
-#define BUFFER_PAYLOAD 4;
-#define BUFFER_SIZE 7;
-#define BUFFER_INPUT_LEN 6;
-#define PORT 2048;
 
 int sockfd;
 int newsockfd;
 
 void sig_handler(int signo) {
     if (signo == SIGINT) {
-        resetAll();
+//        resetAll();
         shutdown(sockfd, 2);
         shutdown(newsockfd, 2);
 
@@ -157,17 +119,16 @@ void sig_handler(int signo) {
         printf("\nexiting\n");
         exit(0);
     }
-
 }
 
-int writeStringToClient(const char *buf) {
+void writeStringToClient(const char *buf) {
     if (write(newsockfd, buf, strlen(buf)) == -1) {
         printf("Error while sending message to client!");
     }
 }
 
-//TODO: Rewrite in wiringPi, not BCM2835
-int distance(int mode) {
+//TODO: Rewrite in wiringPi, not BCM2835, maybe?
+int distance(enum distMode mode) {
 //    printf("Measuring distance!");
     char sbuf[20];
     uint64_t b_t; //begin timer
@@ -182,9 +143,9 @@ int distance(int mode) {
     bcm2835_gpio_set_pud(ECHO, BCM2835_GPIO_PUD_DOWN);
 
     int fff;
-    const int count = 1; // how often to measure
+    const int count = 3; // how often to measure
     for (fff = 0; fff < count; fff++) {
-        // send triger
+        // send trigger
         bcm2835_gpio_set(TRIG); // sets trigger pin to HIGH
         bcm2835_delayMicroseconds(10); // waits 10 microseconds
         bcm2835_gpio_clr(TRIG); // sets trigger pin to LOW
@@ -289,10 +250,10 @@ int main(int argc, char **argv) {
 
             buffer[4] = '\0';
 
-            char c[2];
-            c[0] = buffer[2];
-            c[1] = buffer[3];
-            int pwm = atoi(c);
+          //  char c[2];
+          //  c[0] = buffer[2];
+          //  c[1] = buffer[3];
+            int pwm = atoi((char *)(buffer+2));
 
             printf("%d\n", pwm);
 
@@ -350,8 +311,12 @@ int main(int argc, char **argv) {
                 close(newsockfd);
                 break;
             } else if (strcmp(buffer, "AUTO") == 0) {
+                printf("Test1");
+                usleep(10000000);
+                printf("Test2");
+
                 int dist;
-                int threshold = 10;
+                int threshold = 20;
                 resetAll();
 
                 dist = distance(MID);
@@ -362,13 +327,37 @@ int main(int argc, char **argv) {
                 forward();
 
                 while (1) {
-                    dist = distance(MIN);
+                    dist = distance(MID);
                     printf("Dist: %d \n", dist);
                     if (dist < threshold && dist != 0) {
+                        printf("First");
+                        forward_rightPWM(60);
+                        backward_leftPWM(80);
+                        usleep(100000000);
+                        printf("Second");
                         resetAll();
+                        usleep(100000000);
+                        printf("Third");
+                        dist = distance(MID);
+                        if (dist > 20 || dist == 0) {
+                            continue;
+                        }
+                        printf("Fourth");
+                        forward_leftPWM(60);
+                        backward_rightPWM(80);
+                        dist = distance(MID);
+                        if (dist > 20 || dist == 0) {
+                            continue;
+                        }
+                        usleep(300000000);
+                        printf("Fifth");
+                        resetAll();
+                        usleep(100000000);
+                        printf("Sixth");
                         writeStringToClient("STOP\n");
                         break;
                     }
+                    usleep(50000);
                 }
                 continue;
             } else if (strcmp(buffer, "LOOP") == 0) {

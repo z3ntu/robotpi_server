@@ -1,9 +1,0 @@
-binaries=robotpi_socket
-
-# Actual targets
-robotpi_server:
-	gcc robotpi_socket.c -o robotpi_socket -lwiringPi -lbcm2835 -lpthread
-
-.PHONY: clean
-clean:
-	rm -f $(binaries)
