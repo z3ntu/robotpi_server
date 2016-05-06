@@ -13,10 +13,16 @@
 #include <signal.h>
 #include <unistd.h>
 #include <softPwm.h>
+#include <pthread.h>
 
-// Physical pins
+// Pins for distance measurement (physical pins)
 #define TRIG 23
 #define ECHO 24
+
+// Pins for hall sensor (physical pins)
+#define RIGHT_HALL 31
+#define LEFT_HALL 32
+
 
 //#define BUFFER_PAYLOAD 4;
 //#define BUFFER_SIZE 7;
@@ -25,12 +31,16 @@
 
 enum distMode { MIN, MID, MAX };
 
-// WiringPi pins (not physical)
+// Pins for motors (WiringPi pins (not physical!))
 const int leftForward = 29;
 const int leftBackward = 28;
 const int rightForward = 25;
 const int rightBackward = 24;
 const int servo = 1;
+
+// THREAD STUFF
+pthread_t pth;	// this is our thread identifier
+
 
 void setup() {
     pinMode(servo, PWM_OUTPUT);
@@ -129,7 +139,7 @@ void writeStringToClient(const char *buf) {
 //TODO: Rewrite in wiringPi, not BCM2835, maybe?
 int distance(enum distMode mode) {
 //    printf("Measuring distance!");
-    char sbuf[20];
+//    char sbuf[20];
     uint64_t b_t; //begin timer
     float t_d; // Timer difference
     int min = 0, max = 0, mid = 0;
@@ -188,6 +198,12 @@ int distance(enum distMode mode) {
     return 0;
 }
 
+void *measure_pwm(void *arg) {
+
+
+    return NULL;
+}
+
 
 int main(int argc, char **argv) {
     int port = PORT;
@@ -203,6 +219,10 @@ int main(int argc, char **argv) {
     wiringPiSetup();
     setup();
     signal(SIGINT, sig_handler);
+
+    //THREAD
+    /* Create worker thread */
+    pthread_create(&pth, NULL, measure_pwm, "processing...");
 
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0) {
